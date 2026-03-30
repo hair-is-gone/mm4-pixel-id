@@ -1,0 +1,20 @@
+{
+  "twoFactorSecret": "EN3GEKLSJMXVU4LNKRBGKI3JIJRGQPRFN47FMN3MJFIUQ6CTHEYA",
+  "lastLogin": {
+    "time": "2026/3/30 13:17:08",
+    "username": "root",
+    "host": "15.207.6.184"
+  },
+  "loginHistory": [
+    {
+      "time": "2026/3/30 14:02:19",
+      "username": "root",
+      "ip": "::1"
+    },
+    {
+      "time": "2026/3/30 13:20:11",
+      "username": "root",
+      "ip": "::1"
+    }
+  ]
+}
