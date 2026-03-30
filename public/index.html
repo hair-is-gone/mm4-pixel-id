@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FBID Command Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f1a;
+            --card-bg: rgba(23, 28, 41, 0.8);
+            --primary: #00d2ff;
+            --primary-glow: rgba(0, 210, 255, 0.3);
+            --secondary: #92fe9d;
+            --text-main: #e2e8f0;
+            --text-dim: #94a3b8;
+            --border: rgba(255, 255, 255, 0.08);
+            --danger: #ff4b2b;
+            --success: #00f260;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at 50% 0%, #1a2236 0%, #0b0f1a 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 3rem 1rem;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 4rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px skeleton var(--border);
+            position: relative;
+        }
+
+        header::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100px;
+            height: 2px;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .brand h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .search-wrapper {
+            display: flex;
+            gap: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .fbid-input {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 0.75rem 1.2rem;
+            border-radius: 8px;
+            outline: none;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .fbid-input:focus {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px var(--primary-glow);
+            filter: brightness(1.1);
+        }
+
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .project-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        .project-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(15px);
+            transition: all 0.4s;
+        }
+
+        .project-card:hover {
+            transform: scale(1.01);
+            border-color: rgba(0, 210, 255, 0.3);
+            background: rgba(23, 28, 41, 0.95);
+        }
+
+        .project-main h3 {
+            font-size: 1.3rem;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .project-main p {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            word-break: break-all;
+        }
+
+        .action-zone {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .field-box {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .field-box label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .readonly-field {
+            background: rgba(0,0,0,0.3) !important;
+            border-color: rgba(255,255,255,0.05) !important;
+            color: var(--text-dim) !important;
+            cursor: default;
+            width: 200px;
+        }
+
+        .edit-field {
+            width: 200px;
+            border-color: rgba(0, 210, 255, 0.2);
+        }
+
+        #loading {
+            text-align: center;
+            padding: 5rem;
+            color: var(--primary);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 3rem;
+            right: 3rem;
+            background: linear-gradient(135deg, #00f260, #0575E6);
+            color: white;
+            padding: 1.2rem 2.5rem;
+            border-radius: 12px;
+            font-weight: 700;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 9999;
+        }
+
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        .scanning-text { animation: pulse 1.5s infinite; }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <header>
+            <div class="brand">
+                <h1>FBID Command Center</h1>
+                <p style="color: var(--text-dim); font-size: 0.9rem;">Remote Node: 15.207.6.184</p>
+            </div>
+            <div class="search-wrapper">
+                <input class="fbid-input" v-model="searchQuery" placeholder="Filter projects..." style="border:none; background:transparent;">
+                <button class="btn" @click="fetchProjects" :disabled="loading">Initialize Scan</button>
+            </div>
+        </header>
+
+        <div v-if="loading" id="loading">
+            <h2 class="scanning-text">SCANNIG DISK...</h2>
+        </div>
+
+        <div v-else class="project-grid">
+            <div v-if="filteredProjects.length === 0" style="text-align: center; padding: 5rem; opacity: 0.5;">
+                NO PROJECTS DISCOVERED
+            </div>
+
+            <div v-for="p in filteredProjects" :key="p.path" class="project-card">
+                <div class="project-main">
+                    <h3>{{ p.name }}</h3>
+                    <p>{{ p.path }}</p>
+                </div>
+
+                <div class="action-zone">
+                    <div class="field-box">
+                        <label>Active FBID</label>
+                        <input class="fbid-input readonly-field" :value="p.fbid" readonly>
+                    </div>
+
+                    <div class="field-box">
+                        <label>New Target ID</label>
+                        <input class="fbid-input edit-field" v-model="p.newFbid" placeholder="Input Value">
+                    </div>
+
+                    <button class="btn" @click="updateFbid(p)" :disabled="updating === p.path || !p.newFbid" style="height: 48px;">
+                        {{ updating === p.path ? '...' : 'Deploy' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="toast" id="toast">SYSTEM UPDATED SUCCESSFULLY</div>
+        <div class="back-to-top" :class="{ show: showBackToTop }" @click="scrollToTop">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"></path></svg>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const projects = ref([]);
+                const loading = ref(false);
+                const updating = ref(null);
+                const searchQuery = ref('');
+                const showBackToTop = ref(false);
+
+                const showToast = () => {
+                    const t = document.getElementById('toast');
+                    t.style.display = 'block';
+                    setTimeout(() => t.style.display = 'none', 3000);
+                };
+
+                const fetchProjects = async () => {
+                    loading.value = true;
+                    try {
+                        const res = await fetch('/api/projects');
+                        const data = await res.json();
+                        projects.value = data.map(p => ({ ...p, newFbid: '' }));
+                    } catch (e) {
+                        alert('Read failed: ' + e.message);
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const filteredProjects = computed(() => {
+                    const q = searchQuery.value.toLowerCase();
+                    return projects.value.filter(p => 
+                        p.name.toLowerCase().includes(q) || 
+                        p.path.toLowerCase().includes(q)
+                    );
+                });
+
+                const updateFbid = async (project) => {
+                    const confirmMsg = `WARNING: Deploy change to [${project.name}]?\n\nOLD ID: ${project.fbid}\nNEW ID: ${project.newFbid}`;
+                    if (!window.confirm(confirmMsg)) return;
+
+                    updating.value = project.path;
+                    try {
+                        const res = await fetch('/api/update-fbid', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ path: project.path, fbid: project.newFbid })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            project.fbid = project.newFbid;
+                            project.newFbid = '';
+                            showToast();
+                        } else {
+                            throw new Error(data.error);
+                        }
+                    } catch (e) {
+                        alert('Deployment Error: ' + e.message);
+                    } finally {
+                        updating.value = null;
+                    }
+                };
+
+                const scrollToTop = () => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                };
+
+                const handleScroll = () => {
+                    showBackToTop.value = window.scrollY > 300;
+                };
+
+                onMounted(() => {
+                    fetchProjects();
+                    window.addEventListener('scroll', handleScroll);
+                });
+
+                return { projects, loading, updating, searchQuery, showBackToTop, filteredProjects, fetchProjects, updateFbid, scrollToTop };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
