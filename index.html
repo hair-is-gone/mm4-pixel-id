@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FBID 控制中心</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f1a;
+            --card-bg: rgba(23, 28, 41, 0.9);
+            --primary: #00d2ff;
+            --primary-glow: rgba(0, 210, 255, 0.3);
+            --secondary: #92fe9d;
+            --text-main: #e2e8f0;
+            --text-dim: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+            --danger: #ff4b2b;
+            --success: #00f260;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: #0b0f1a;
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 3rem 1rem;
+            line-height: 1.6;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 4rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .brand h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .host-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(0, 210, 255, 0.1);
+            border: 1px solid rgba(0, 210, 255, 0.3);
+            color: var(--primary);
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        .host-status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .search-wrapper {
+            display: flex;
+            gap: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .fbid-input {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 0.75rem 1.2rem;
+            border-radius: 8px;
+            outline: none;
+            font-size: 0.95rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.3s;
+            font-size: 0.85rem;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px var(--primary-glow);
+        }
+
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .project-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
+
+        .project-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(15px);
+            transition: all 0.4s;
+        }
+
+        .project-card:hover {
+            border-color: rgba(0, 210, 255, 0.3);
+            background: rgba(23, 28, 41, 0.98);
+        }
+
+        .project-main h3 { font-size: 1.3rem; color: #fff; margin-bottom: 0.5rem; }
+
+        .project-main p { font-size: 0.8rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+
+        .action-zone { display: flex; gap: 2rem; align-items: center; }
+
+        .field-box { display: flex; flex-direction: column; gap: 0.5rem; }
+
+        .field-box label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+        }
+
+        .readonly-field {
+            background: rgba(0,0,0,0.3) !important;
+            border-color: rgba(255,255,255,0.05) !important;
+            color: var(--text-dim) !important;
+            cursor: default;
+            width: 200px;
+        }
+
+        .edit-field { width: 200px; }
+
+        #loading { text-align: center; padding: 5rem; color: var(--primary); }
+
+        .toast {
+            position: fixed;
+            bottom: 3rem;
+            right: 3rem;
+            background: linear-gradient(135deg, #00f260, #0575E6);
+            color: white;
+            padding: 1.2rem 2.5rem;
+            border-radius: 12px;
+            font-weight: 700;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 9999;
+        }
+
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        .scanning-text { animation: pulse 1.5s infinite; }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            visibility: hidden;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+        .modal-overlay.show { visibility: visible; opacity: 1; }
+        .login-modal {
+            background: var(--card-bg);
+            border: 1px solid var(--primary);
+            border-radius: 20px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 0 30px var(--primary-glow);
+        }
+        .login-modal h2 { font-size: 1.5rem; margin-bottom: 2rem; text-align: center; color: #fff; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            color: #fff;
+            outline: none;
+        }
+        .form-group textarea { height: 120px; resize: none; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+        .file-drop-zone {
+            width: 100%;
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+        .file-drop-zone.has-file { border-style: solid; border-color: var(--success); color: var(--success); }
+        .key-mode-tabs {
+            display: flex;
+            gap: 2px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 4px;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .key-mode-tab {
+            flex: 1;
+            padding: 0.5rem;
+            text-align: center;
+            font-size: 0.7rem;
+            cursor: pointer;
+            border-radius: 6px;
+            color: var(--text-dim);
+        }
+        .key-mode-tab.active {
+            background: var(--primary);
+            color: #000;
+            font-weight: 700;
+        }
+        .login-footer .btn {
+            width: 100%;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .qr-section {
+            text-align: center;
+            background: rgba(255,255,255,0.05);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+        }
+        .qr-section img {
+            width: 180px;
+            height: 180px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 1rem auto;
+        }
+        .qr-section p {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        /* 用户信息面板样式 */
+        .user-area {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            cursor: pointer;
+        }
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary) 0%, #0081ff 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
+        }
+        .profile-popover {
+            position: absolute;
+            top: 50px;
+            right: 0;
+            width: 320px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            z-index: 100;
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .user-area:hover .profile-popover {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .history-title {
+            font-size: 0.85rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 0.5rem;
+        }
+        .history-item {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        .history-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-bottom: 0.25rem;
+        }
+        .history-ip {
+            font-size: 0.9rem;
+            color: #fff;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(255,255,255,0.05);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <header>
+            <div class="brand">
+                <h1>FBID 控制中心</h1>
+                <div class="host-badge">
+                    <div class="host-status-dot" :style="{ background: loginForm.host ? 'var(--success)' : '#666', boxShadow: loginForm.host ? '0 0 8px var(--success)' : 'none' }"></div>
+                    终端地址: {{ loginForm.host || '未连接' }}
+                </div>
+            </div>
+            
+            <div class="search-wrapper">
+                <input class="fbid-input" v-model="searchQuery" placeholder="过滤项目..." style="border:none; background:transparent;">
+                <button class="btn" @click="fetchProjects" :disabled="loading">初始化扫描</button>
+                
+                <div class="user-area" v-if="loginForm.host">
+                    <div class="user-avatar">AD</div>
+                    <div class="profile-popover">
+                        <div class="history-title">
+                            <span>🕒 最近访问记录 (IP)</span>
+                        </div>
+                        <div v-if="loginHistory.length">
+                            <div v-for="(h, i) in loginHistory" :key="i" class="history-item">
+                                <div class="history-meta">
+                                    <span>{{ h.username }}</span>
+                                    <span>{{ h.time }}</span>
+                                </div>
+                                <div class="history-ip">{{ h.ip }}</div>
+                            </div>
+                        </div>
+                        <div v-else style="color: var(--text-dim); font-size: 0.85rem; text-align: center; padding: 1rem;">暂无访问历史</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div v-if="loading" id="loading">
+            <h2 class="scanning-text">正在扫描磁盘...</h2>
+        </div>
+
+        <div v-else class="project-grid">
+            <div v-if="filteredProjects.length === 0" style="text-align: center; padding: 5rem; opacity: 0.5;">
+                未发现可用项目
+            </div>
+
+            <div v-for="p in filteredProjects" :key="p.path" class="project-card">
+                <div class="project-main">
+                    <h3>{{ p.name }}</h3>
+                    <p>{{ p.path }}</p>
+                </div>
+
+                <div class="action-zone">
+                    <div class="field-box">
+                        <label>当前 FBID</label>
+                        <input class="fbid-input readonly-field" :value="p.fbid" readonly>
+                    </div>
+
+                    <div class="field-box">
+                        <label>目标新 ID</label>
+                        <input class="fbid-input edit-field" v-model="p.newFbid" placeholder="输入 ID">
+                    </div>
+
+                    <button class="btn" @click="updateFbid(p)" :disabled="updating === p.path || !p.newFbid" style="height: 48px;">
+                        {{ updating === p.path ? '...' : '部署' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="toast" id="toast">系统同步成功</div>
+
+        <div class="modal-overlay" :class="{ show: showLoginModal }">
+            <div class="login-modal">
+                <!-- Login Input Section -->
+                <div v-if="!is2FABinding">
+                    <h2>建立安全链路</h2>
+                    <div class="form-group" style="display: grid; grid-template-columns: 1fr 100px; gap: 1rem;">
+                        <div>
+                            <label>主机地址</label>
+                            <input v-model="loginForm.host" placeholder="例如: 15.207.6.184">
+                        </div>
+                        <div>
+                            <label>端口</label>
+                            <input v-model="loginForm.port" placeholder="22">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <input v-model="loginForm.username" placeholder="root">
+                    </div>
+                    <div class="form-group">
+                        <label>SSH 私钥 (ID_RSA)</label>
+                        <div class="key-mode-tabs">
+                            <div class="key-mode-tab" :class="{ active: keyInputMode === 'file' }" @click="keyInputMode = 'file'">本地文件</div>
+                            <div class="key-mode-tab" :class="{ active: keyInputMode === 'text' }" @click="keyInputMode = 'text'">手动输入</div>
+                        </div>
+                        
+                        <div v-show="keyInputMode === 'file'">
+                            <div class="file-drop-zone" :class="{ 'has-file': keyFileName }" @click="$refs.fileInput.click()">
+                                {{ keyFileName ? '已加载: ' + keyFileName : '点击选择私钥文件' }}
+                            </div>
+                            <input type="file" ref="fileInput" @change="handleFileChange" style="display: none;">
+                        </div>
+                        
+                        <div v-show="keyInputMode === 'text'">
+                            <textarea v-model="loginForm.privateKey" placeholder="在此粘贴私钥内容..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>私钥密码 (Passphrase - 可选)</label>
+                        <input type="password" v-model="loginForm.passphrase" placeholder="如果私钥有加密请在此输入密码">
+                    </div>
+
+                    <div class="login-footer">
+                        <button class="btn" @click="handleLogin" :disabled="loggingIn">
+                            {{ loggingIn ? '初始化安全会话' : '初始化安全会话' }}
+                        </button>
+                        <p v-if="loginError" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-top: 0.5rem;">{{ loginError }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const projects = ref([]);
+                const loading = ref(false);
+                const updating = ref(null);
+                const searchQuery = ref('');
+                const showLoginModal = ref(false);
+                const loggingIn = ref(false);
+                const loginError = ref('');
+                const keyInputMode = ref('file');
+                const keyFileName = ref('');
+
+                // 2FA 状态
+                const is2FABinding = ref(false);
+                const qrCodeData = ref('');
+                const confirmCode = ref('');
+
+                // 审计日志列表
+                const loginHistory = ref([]);
+
+                const loginForm = ref({
+                    host: '',
+                    port: '22',
+                    username: 'root',
+                    privateKey: '',
+                    passphrase: ''
+                });
+
+                const getStoredSshConfig = () => {
+                    const stored = sessionStorage.getItem('ssh_credentials');
+                    return stored ? JSON.parse(stored) : null;
+                };
+
+                const showToast = () => {
+                    const t = document.getElementById('toast');
+                    t.style.display = 'block';
+                    setTimeout(() => t.style.display = 'none', 3000);
+                };
+
+                const handleLogin = async () => {
+                    if (!loginForm.value.privateKey) {
+                        loginError.value = '请先提供私钥内容';
+                        return;
+                    }
+                    loggingIn.value = true;
+                    loginError.value = '';
+                    try {
+                        const res = await fetch('/api/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(loginForm.value)
+                        });
+                        
+                        const contentType = res.headers.get("content-type");
+                        if (contentType && contentType.indexOf("application/json") !== -1) {
+                            const data = await res.json();
+                            if (data.success) {
+                                sessionStorage.setItem('ssh_credentials', JSON.stringify(loginForm.value));
+                                showLoginModal.value = false;
+                                fetchProjects();
+                            } else {
+                                throw new Error(data.error || '登录失败');
+                            }
+                        } else {
+                            const rawText = await res.text();
+                            console.error('Server returned non-JSON:', rawText);
+                            throw new Error('服务器内部错误导致无法返回 JSON (Body 大小超限或 Node 崩溃)');
+                        }
+                    } catch (e) {
+                        loginError.value = e.message;
+                    } finally {
+                        loggingIn.value = false;
+                    }
+                };
+
+                // 移除 handleConfirm2FA 因为已废弃
+
+                const handleFileChange = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    keyFileName.value = file.name;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        loginForm.value.privateKey = e.target.result;
+                    };
+                    reader.readAsText(file);
+                };
+
+                const fetchProjects = async () => {
+                    const sshConfig = getStoredSshConfig();
+                    if (!sshConfig) {
+                        showLoginModal.value = true;
+                        return;
+                    }
+
+                    loading.value = true;
+                    try {
+                        const res = await fetch('/api/projects', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ sshConfig })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || '获取项目失败');
+                        
+                        projects.value = (data.projects || []).map(p => ({ ...p, newFbid: '' }));
+                        if (data.host) loginForm.value.host = data.host;
+                        if (data.loginHistory) loginHistory.value = data.loginHistory;
+                    } catch (e) {
+                        if (e.message.includes('认证失败')) sessionStorage.removeItem('ssh_credentials');
+                        alert('读取失败: ' + e.message);
+                        showLoginModal.value = true;
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const checkConnectionAndFetch = async () => {
+                    const sshConfig = getStoredSshConfig();
+                    if (sshConfig) {
+                        // 如果有会话存储，尝试自动加载项目
+                        loginForm.value.host = sshConfig.host;
+                        fetchProjects();
+                    } else {
+                        showLoginModal.value = true;
+                    }
+                };
+
+                const filteredProjects = computed(() => {
+                    const q = searchQuery.value.toLowerCase();
+                    return projects.value.filter(p => 
+                        p.name.toLowerCase().includes(q) || 
+                        p.path.toLowerCase().includes(q)
+                    );
+                });
+
+                const updateFbid = async (project) => {
+                    const sshConfig = getStoredSshConfig();
+                    if (!sshConfig) { alert('登录会话已过期，请重新登录'); showLoginModal.value = true; return; }
+
+                    const confirmMsg = `警告: 确认更新 [${project.name}] 的 FBID?\n\n原 ID: ${project.fbid}\n新 ID: ${project.newFbid}`;
+                    if (!window.confirm(confirmMsg)) return;
+
+                    updating.value = project.path;
+                    try {
+                        const res = await fetch('/api/update-fbid', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                path: project.path, 
+                                fbid: project.newFbid,
+                                sshConfig: sshConfig
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            project.fbid = project.newFbid;
+                            project.newFbid = '';
+                            showToast();
+                        } else {
+                            throw new Error(data.error);
+                        }
+                    } catch (e) {
+                        alert('更新失败: ' + e.message);
+                    } finally {
+                        updating.value = null;
+                    }
+                };
+
+                onMounted(() => {
+                    checkConnectionAndFetch();
+                });
+
+                return { 
+                    projects, loading, updating, searchQuery, showLoginModal, 
+                    loginForm, handleLogin, loggingIn, loginError,
+                    handleFileChange, keyFileName, keyInputMode,
+                    filteredProjects, fetchProjects, updateFbid,
+                    loginHistory
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
