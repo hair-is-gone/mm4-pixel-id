@@ -461,35 +461,14 @@
                     </div>
 
                     <div class="form-group">
-                        <label>谷歌验证码 (如有)</label>
-                        <input v-model="loginForm.twoFactorCode" placeholder="6 位动态码" maxlength="6">
+                        <label>私钥密码 (Passphrase - 可选)</label>
+                        <input type="password" v-model="loginForm.passphrase" placeholder="如果私钥有加密请在此输入密码">
                     </div>
 
                     <div class="login-footer">
                         <button class="btn" @click="handleLogin" :disabled="loggingIn">
-                            {{ loggingIn ? '连接中...' : '初始化安全会话' }}
+                            {{ loggingIn ? '初始化安全会话' : '初始化安全会话' }}
                         </button>
-                        <p v-if="loginError" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-top: 0.5rem;">{{ loginError }}</p>
-                    </div>
-                </div>
-
-                <!-- 2FA Setup/Binding Section -->
-                <div v-else>
-                    <h2>绑定 Google 验证器</h2>
-                    <div class="qr-section">
-                        <p>请使用 Google Authenticator APP 扫码</p>
-                        <img :src="qrCodeData" alt="QR Code">
-                        <p style="margin-top: 0.5rem;">扫码成功后，请输入 APP 显示的 6 位码进行确认</p>
-                    </div>
-                    <div class="form-group">
-                        <label>验证码确认</label>
-                        <input v-model="confirmCode" placeholder="请输入 6 位动态码" maxlength="6">
-                    </div>
-                    <div class="login-footer">
-                        <button class="btn" @click="handleConfirm2FA" :disabled="loggingIn">
-                            {{ loggingIn ? '验证中...' : '完成绑定并开启保护' }}
-                        </button>
-                        <button class="btn" @click="is2FABinding = false" style="background: transparent; border: 1px solid var(--border); margin-top: 0.5rem;">返回重试</button>
                         <p v-if="loginError" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-top: 0.5rem;">{{ loginError }}</p>
                     </div>
                 </div>
@@ -526,8 +505,13 @@
                     port: '22',
                     username: 'root',
                     privateKey: '',
-                    twoFactorCode: ''
+                    passphrase: ''
                 });
+
+                const getStoredSshConfig = () => {
+                    const stored = sessionStorage.getItem('ssh_credentials');
+                    return stored ? JSON.parse(stored) : null;
+                };
 
                 const showToast = () => {
                     const t = document.getElementById('toast');
@@ -548,25 +532,21 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(loginForm.value)
                         });
-                        const data = await res.json();
                         
-                        if (res.status === 401 && data.needs2FA) {
-                            // 需要输入 2FA，留在当前页面提示用户输入
-                            loginError.value = data.error;
-                            return;
-                        }
-
-                        if (data.success) {
-                            if (data.needs2FA && data.isNew) {
-                                // 首次登录，跳转到绑定界面
-                                qrCodeData.value = data.qrCode;
-                                is2FABinding.value = true;
-                            } else {
+                        const contentType = res.headers.get("content-type");
+                        if (contentType && contentType.indexOf("application/json") !== -1) {
+                            const data = await res.json();
+                            if (data.success) {
+                                sessionStorage.setItem('ssh_credentials', JSON.stringify(loginForm.value));
                                 showLoginModal.value = false;
                                 fetchProjects();
+                            } else {
+                                throw new Error(data.error || '登录失败');
                             }
                         } else {
-                            throw new Error(data.error);
+                            const rawText = await res.text();
+                            console.error('Server returned non-JSON:', rawText);
+                            throw new Error('服务器内部错误导致无法返回 JSON (Body 大小超限或 Node 崩溃)');
                         }
                     } catch (e) {
                         loginError.value = e.message;
@@ -575,29 +555,7 @@
                     }
                 };
 
-                const handleConfirm2FA = async () => {
-                    if (!confirmCode.value) return;
-                    loggingIn.value = true;
-                    try {
-                        const res = await fetch('/api/confirm-2fa', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ code: confirmCode.value })
-                        });
-                        const data = await res.json();
-                        if (data.success) {
-                            is2FABinding.value = false;
-                            confirmCode.value = '';
-                            loginError.value = '绑定成功，请使用验证码重新登录';
-                        } else {
-                            throw new Error(data.error);
-                        }
-                    } catch (e) {
-                        loginError.value = e.message;
-                    } finally {
-                        loggingIn.value = false;
-                    }
-                };
+                // 移除 handleConfirm2FA 因为已废弃
 
                 const handleFileChange = (event) => {
                     const file = event.target.files[0];
@@ -611,58 +569,42 @@
                 };
 
                 const fetchProjects = async () => {
+                    const sshConfig = getStoredSshConfig();
+                    if (!sshConfig) {
+                        showLoginModal.value = true;
+                        return;
+                    }
+
                     loading.value = true;
                     try {
-                        const res = await fetch('/api/projects');
-                        if (res.status === 401) {
-                            showLoginModal.value = true;
-                            return;
-                        }
+                        const res = await fetch('/api/projects', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ sshConfig })
+                        });
                         const data = await res.json();
-                        if (!res.ok) throw new Error(data.error || '连接服务器失败');
+                        if (!res.ok) throw new Error(data.error || '获取项目失败');
                         
-                        // 兼容处理：支持 [{...}] 和 { host: "...", projects: [...] } 两种格式
-                        let rawProjects = [];
-                        if (Array.isArray(data)) {
-                            rawProjects = data;
-                        } else if (data && typeof data === 'object') {
-                            rawProjects = data.projects || [];
-                            if (data.host) loginForm.value.host = data.host;
-                            if (data.loginHistory) loginHistory.value = data.loginHistory;
-                        }
-
-                        projects.value = rawProjects.map(p => ({ ...p, newFbid: '' }));
+                        projects.value = (data.projects || []).map(p => ({ ...p, newFbid: '' }));
+                        if (data.host) loginForm.value.host = data.host;
+                        if (data.loginHistory) loginHistory.value = data.loginHistory;
                     } catch (e) {
+                        if (e.message.includes('认证失败')) sessionStorage.removeItem('ssh_credentials');
                         alert('读取失败: ' + e.message);
+                        showLoginModal.value = true;
                     } finally {
                         loading.value = false;
                     }
                 };
 
                 const checkConnectionAndFetch = async () => {
-                    loading.value = true;
-                    try {
-                        const res = await fetch('/api/projects');
-                        const data = await res.json();
-                        
-                        if (res.status === 401) {
-                            showLoginModal.value = true;
-                            return;
-                        }
-                        
-                        if (res.ok && data.projects) {
-                            if (data.host) loginForm.value.host = data.host;
-                            if (data.loginHistory) loginHistory.value = data.loginHistory;
-                            projects.value = data.projects.map(p => ({ ...p, newFbid: '' }));
-                        } else {
-                            showLoginModal.value = true;
-                        }
-                    } catch (e) {
-                        // 忽略初始连接时的网络/认证错误，仅弹出登录框
-                        console.log('User not logged in or server unreachable');
+                    const sshConfig = getStoredSshConfig();
+                    if (sshConfig) {
+                        // 如果有会话存储，尝试自动加载项目
+                        loginForm.value.host = sshConfig.host;
+                        fetchProjects();
+                    } else {
                         showLoginModal.value = true;
-                    } finally {
-                        loading.value = false;
                     }
                 };
 
@@ -675,19 +617,23 @@
                 });
 
                 const updateFbid = async (project) => {
+                    const sshConfig = getStoredSshConfig();
+                    if (!sshConfig) { alert('登录会话已过期，请重新登录'); showLoginModal.value = true; return; }
+
                     const confirmMsg = `警告: 确认更新 [${project.name}] 的 FBID?\n\n原 ID: ${project.fbid}\n新 ID: ${project.newFbid}`;
                     if (!window.confirm(confirmMsg)) return;
+
                     updating.value = project.path;
                     try {
                         const res = await fetch('/api/update-fbid', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ path: project.path, fbid: project.newFbid })
+                            body: JSON.stringify({ 
+                                path: project.path, 
+                                fbid: project.newFbid,
+                                sshConfig: sshConfig
+                            })
                         });
-                        if (res.status === 401) {
-                            showLoginModal.value = true;
-                            return;
-                        }
                         const data = await res.json();
                         if (data.success) {
                             project.fbid = project.newFbid;
@@ -712,7 +658,6 @@
                     loginForm, handleLogin, loggingIn, loginError,
                     handleFileChange, keyFileName, keyInputMode,
                     filteredProjects, fetchProjects, updateFbid,
-                    is2FABinding, qrCodeData, confirmCode, handleConfirm2FA,
                     loginHistory
                 };
             }

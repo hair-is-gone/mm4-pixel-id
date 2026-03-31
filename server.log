@@ -3,3 +3,14 @@
 > node server.js
 
 FBID Manager listening at http://localhost:3000
+[SSH Debug] 收到 Host: 15.207.6.184, 私钥头部预览: -----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZX...
+[SSH] 开始扫描项目: 15.207.6.184
+[SSH] 扫描完成，关闭连接: 15.207.6.184
+[SSH] 会话已安全关闭: 15.207.6.184
+[SSH] 开始扫描项目: 15.207.6.184
+[SSH] 扫描完成，关闭连接: 15.207.6.184
+[SSH] 会话已安全关闭: 15.207.6.184
+[SSH] 开始更新 FBID: /home/ubuntu/project/office_patigop.com/dist/index.html
+[SSH] 开始扫描项目: 15.207.6.184
+[SSH] 扫描完成，关闭连接: 15.207.6.184
+[SSH] 会话已安全关闭: 15.207.6.184
